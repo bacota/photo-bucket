@@ -1,0 +1,81 @@
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <style type="text/css">
+      a {text-decoration:none;}
+      table,th,td { border: 1px solid black; padding: 3px }
+    </style>
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.266.1.min.js"></script>
+    <script type="text/javascript" src="apiGateway-js-sdk/lib/axios/dist/axios.standalone.js"></script>
+    <script type="text/javascript" src="apiGateway-js-sdk/lib/CryptoJS/rollups/hmac-sha256.js"></script>
+    <script type="text/javascript" src="apiGateway-js-sdk/lib/CryptoJS/rollups/sha256.js"></script>
+    <script type="text/javascript" src="apiGateway-js-sdk/lib/CryptoJS/components/hmac.js"></script>
+    <script type="text/javascript" src="apiGateway-js-sdk/lib/CryptoJS/components/enc-base64.js"></script>
+    <script type="text/javascript" src="apiGateway-js-sdk/lib/url-template/url-template.js"></script>
+    <script type="text/javascript" src="apiGateway-js-sdk/lib/apiGatewayCore/sigV4Client.js"></script>
+    <script type="text/javascript" src="apiGateway-js-sdk/lib/apiGatewayCore/apiGatewayClient.js"></script>
+    <script type="text/javascript" src="apiGateway-js-sdk/lib/apiGatewayCore/simpleHttpClient.js"></script>
+    <script type="text/javascript" src="apiGateway-js-sdk/lib/apiGatewayCore/utils.js"></script>
+    <script type="text/javascript" src="apiGateway-js-sdk/apigClient.js"></script>
+    <script src="photoalbum.js" type="text/javascript"></script>
+    <script src="photos.js" type="text/javascript"></script>
+  </head>
+  <body>
+    <div id="folder">
+      <div id="folder-app">
+        Loading ...
+      </div>
+      <button onclick="createFolder();">Create Folder</button>
+    </div>
+    
+    <div id="thumbs">
+      <button onclick="showDiv('folder');">Return to Folder List</button>
+      <button onclick="refreshFolder()">Refresh Folder</button>
+      <button onclick="renameFolder()">Rename Folder</button>
+      <button onclick="deleteCurrentFolder()" id="delete-button">
+        Delete Folder
+      </button>
+      <button onclick="saveOrdering()" id="saveOrdering">Save This Ordering</button>
+      <B>|</B>
+      <label for="upload">Upload Image</label>
+      <input type="file" id="upload" value="" multiple="true" accept="image/png,image/jpeg" onchange="upload()"/>
+      <BR/>
+      <BR/>
+    </div>
+
+    <div id="main">
+      <div id="photo-caption"></div>
+      <table>
+        <tr>
+          <td align="left"><B><a href=# onclick="rotate(90)">&#x21BB;</a></B></td>
+          <td align="center"><B><a href=# onclick="closeImage()">X</a></B></td>
+          <td align="left"><B><a href=# onclick="rotate(-90)">&#x21BA;</a></B></td>
+        </tr>
+        <tr>
+          <td align="left"><B><a href=# onclick="previous()">&lt;</a></B></td>
+          <td align="center"><div id="image-container"></div></td>
+          <td align="left"><B><a href=# onclick="next()">&gt;</a></B></td>
+        </tr>
+        <tr>
+          <td align="left"><B><a href=# onclick="rotate(90)">&#x21BB;</a></B></td>
+          <td align="center"><B><a href=# onclick="closeImage()">X</a></B></td>
+          <td align="left"><B><a href=# onclick="rotate(-90)">&#x21BA;</a></B></td>
+        </tr>
+      </table>
+      <BR><BR>
+      <button onclick="deleteCurrentPhoto()">Delete Photo</button>
+      <B>|</B>
+      <button onclick="moveCurrentPhoto()">Move Photo to </button>
+      <select name="folderChoice" id="folderChoice">
+        <option value="" selected></option>
+      </select>
+      <BR><BR>
+      <button onclick="setCaption()">Set Caption</button>
+        <input type="text" name="caption" id="captionInput" size="80"> 
+    </div>
+
+    <script type="text/javascript">
+      authenticate('us-east-1', 'photoalbum.vivi.com');
+    </script>
+  </body>
+</html>
