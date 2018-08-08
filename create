@@ -1,0 +1,19 @@
+Configuration File:
+              bucket name
+              role name
+              username
+              password
+              lambda role name
+              lambda2 name
+Bucket with web distribution set
+Bucket Cors
+Role for Bucket Access
+Role for Auth Lambda 
+Auth Lambda
+API Gateway (complete with Cors) for Auth Lambda
+apigatewy js
+Role for Image processing lambda
+Image processing lambda (with S3 trigger)
+two html files
+upload html and js files to bucket, along with api gateway js
+
