@@ -37,7 +37,6 @@ function showThumbs(region, bucket, folder) {
         apiVersion: '2006-03-01',
         params: { Bucket: bucket }
     });
-    console.log("Getting object " + folder + '/metadata.json')
     s3.makeUnauthenticatedRequest(
         'getObject',
         {Bucket: bucket, Key: folder + '/metadata.json'},
@@ -76,10 +75,10 @@ function doShowThumbs(region, bucket, folder, orderedImages) {
         for (let i=0; i<orderedImages.length; ++i) {
             addThumb(orderedImages[i], i)
         }
-        toggleDeleteButton(orderedImages.length)
     } else {
-        showAllThumbs(region, bucket, folder)
+        resetImages()
     }
+    showAllThumbs(region, bucket, folder)
 }
 
 function showAllThumbs(region, bucket, folder) {
@@ -94,7 +93,6 @@ function showAllThumbs(region, bucket, folder) {
         function(err, s3data) {
             if (err) console.log(err, err.stack)
             else {
-                resetImages()
                 currentIndex = 0
                 let contents = s3data.Contents
                 let i, len = contents.length
@@ -102,16 +100,15 @@ function showAllThumbs(region, bucket, folder) {
                     let parts = contents[i].Key.split('/')
                     addThumb(parts.pop(), i)
                 }
-                toggleDeleteButton(i)
             }
         }
     )
 }
 
-function toggleDeleteButton(i) {
+function toggleDeleteButton() {
     let deleteButton = document.getElementById('delete-button')
     if (deleteButton != null) {
-        if (i > 0) {
+        if (images.length > 0) {
             deleteButton.style.display = 'none'
         } else {
             deleteButton.style.display = 'inline'

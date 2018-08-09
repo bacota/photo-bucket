@@ -151,14 +151,15 @@ function createFolder() {
 
 function deleteCurrentFolder() {
     s3.deleteObject(
+        { Bucket: bucket, Key: currentFolder + '/metadata.json' },
+        logErr
+    )
+    s3.deleteObject(
         { Bucket: bucket, Key: currentFolder + '/index.html' },
         function(err, s3data) {
             if (err) console.log(err, err.stack)
             else listFolders(region, bucket)
         }
-    )
-    s3.deleteObject(
-        { Bucket: bucket, Key: currentFolder + '/metadata.json' }
     )
 }
 
@@ -252,7 +253,11 @@ function deleteCurrentPhoto() {
         deleteObject(currentFolder + '/main/' + image)
         deleteObject(currentFolder + '/thumb/' + image)
     }
-    newImages = images.filter(img => img != image)
+    refreshPhotosWithout(image)
+}
+
+function refreshPhotosWithout(removed) {
+    newImages = images.filter(img => img != removed)
     removeElementsByClass('thumb')
     resetImages()
     doShowThumbs(region, bucket, currentFolder, newImages)
@@ -274,6 +279,7 @@ function moveCurrentPhoto() {
     let image = currentImage()
     renameObject(currentFolder +'/main/'+image, newFolder+'/main/'+image)
     renameObject(currentFolder +'/thumb/'+image, newFolder+'/thumb/'+image)
+    refreshPhotosWithout(image)
 }
 
 
