@@ -81,13 +81,16 @@ function listFolders(regionName, bucketName) {
                 let table = document.createElement("table")
                 let tr
                 let i,len = s3data.CommonPrefixes.length
+                let hack=0
                 for (i=0; i<len; ++i) {
-                    if (i%4 == 0) {
+                    if ((i-hack)%4 == 0) {
                         tr = document.createElement("tr")
                     }
                     table.appendChild(tr)
                     let folder = stripSlash(s3data.CommonPrefixes[i].Prefix)
-                    if (folder != 'apiGateway-js-sdk') {
+                    if (folder == 'apiGateway-js-sdk') {
+                        hack = 1
+                    } else {
                         if (folderChoice) 
                             addFolder(folderChoice, folder)
                         let text = document.createTextNode(folder)
