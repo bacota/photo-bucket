@@ -25,8 +25,6 @@ s3.put_bucket_website(
 
 iam = boto3.client('iam')
 
-photoManagerRoleName = rolePrefix + 'PhotoManager'
-
 lambdaTrustPolicy = {
   "Version": "2012-10-17",
   "Statement": [
@@ -39,48 +37,7 @@ lambdaTrustPolicy = {
   }]
 }
 
-
-iam.create_role(
-    RoleName=photoManagerRoleName,
-    AssumeRolePolicyDocument=json.dumps(lambdaTrustPolicy)
-)
-
-managePhotosPolicyName = rolePrefix + 'ManagePhotosPolicy'
-managePhotosPolicy = {
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Sid": managePhotosPolicyName,
-            "Effect": "Allow",
-            "Action": "s3:*",
-            "Resource": [
-                "arn:aws:s3:::"+bucketName,
-                "arn:aws:s3:::"+bucketName+"/*"
-            ]
-        }
-    ]
-}
-
-managePhotosPolicyResponse = iam.create_policy(
-    PolicyName=managePhotosPolicyName,
-    PolicyDocument=json.dumps(managePhotosPolicy)
-)
-managePhotosPolicyArn = managePhotosPolicyResponse['Policy']['Arn']
-
-iam.attach_role_policy(
-    PolicyArn=managePhotosPolicyArn,
-    RoleName=photoManagerRoleName
-)
-
-authLambdaRoleName = rolePrefix + 'AuthLambda'
-authLambdaRoleResponse = iam.create_role(
-    RoleName=authLambdaRoleName,
-    AssumeRolePolicyDocument=json.dumps(lambdaTrustPolicy)
-)
-authLambdaRoleArn = authLambdaRoleResponse['Role']['Arn']
-
-authLambdaPolicyName = rolePrefix + 'AuthLambdaPolicy'
-authLambdaPolicy = {
+lambdaExecutionPolicy = {
     "Version": "2012-10-17",
     "Statement": [
         {
@@ -91,36 +48,70 @@ authLambdaPolicy = {
                 "logs:PutLogEvents"
             ],
             "Resource": "arn:aws:logs:*:*:*"
-        },
+        }
+    ]
+}
+
+
+def createRole(name,  *policies):
+    roleName = rolePrefix + name
+    roleResponse = iam.create_role(
+        RoleName=roleName, 
+        AssumeRolePolicyDocument=json.dumps(lambdaTrustPolicy)
+    )
+    roleArn = roleResponse['Role']['Arn']
+    p=0
+    for policy in policies:
+        p = p+1
+        policyName = rolePrefix + name + 'Policy' + str(p)
+        policyResponse = iam.create_policy(
+            PolicyName=policyName,
+            PolicyDocument=json.dumps(policy)
+        )
+        policyArn = policyResponse['Policy']['Arn']
+        iam.attach_role_policy(
+            PolicyArn=policyArn,
+            RoleName=roleName
+        )
+        return roleArn
+
+photoManagerArn = createRole('PhotoManager', {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": "s3:*",
+            "Resource": [
+                "arn:aws:s3:::"+bucketName,
+                "arn:aws:s3:::"+bucketName+"/*"
+            ]
+        }
+    ]
+})
+
+
+
+
+createRole('AuthLambda', lambdaExecutionPolicy, {
+    "Version": "2012-10-17",
+    "Statement": [
         {
             "Effect": "Allow",
             "Action": [
                 "sts:AssumeRole"
             ],
-            "Resource": authLambdaRoleArn
+            "Resource": photoManagerArn
         }
     ]
-}
+})
 
-authLambdaPolicyResponse = iam.create_policy(
-    PolicyName=authLambdaPolicyName,
-    PolicyDocument=json.dumps(authLambdaPolicy)
-)
 
-authLambdaPolicyArn = authLambdaPolicyResponse['Policy']['Arn']
 
-iam.attach_role_policy(
-    PolicyArn=authLambdaPolicyArn,
-    RoleName=authLambdaRoleName
-)
-
-#Create role that can write to the bucket
 #Add bucket policy to bucket
 #Enable cors on the bucket
 #Copy js files to bucket
 #generate index files and copy those to bucket
 #create role for auth lambda
-#create Auth lambda
 #Create api gateway endpoint
 #Create Cors for API Gateway
 #Create apigateway js
