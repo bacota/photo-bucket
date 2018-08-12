@@ -188,6 +188,7 @@ apiId = apiResponse['id']
 swagger = readFile('photoauth-Production-swagger-apigateway.json', 'r').replace(
     '${apiId}', apiId).replace('${region}', region).replace('${authLambdaArn}', lambdaArn).replace('${title}', apiName)
 apig.put_rest_api(restApiId=apiId, body=swagger)
+apig.create_deployment(restApiId=apiId, stageName='Production')
 
 def copyToS3(fileName):
     body = readFile(fileName, 'rb')
@@ -206,25 +207,23 @@ replAndCopyToS3('private-index.html')
 zipFileName = 'sdk.zip'
 
 sdk = apig.get_sdk(restApiId=apiId, stageName='Production', sdkType='javascript')['body'].read()
-zipFile = open(zipFileName, 'w')
-f.write(sdk)
-f.close()
+zipFile = open(zipFileName, 'wb')
+zipFile.write(sdk)
+zipFile.close()
 
 zip = zipfile.ZipFile(zipFileName, 'r')
 zip.extractall(".")
 zip.close()
 
-apiDirName = 'apiGateway-js-sdk'
-jsfiles = os.listdir(apiDirName)
-for f in jsFiles:
-    jsFileName = os.path.join(apiDirName, f)
-    print(jsFileName)
+def copyDir(dirName):
+    for f in os.listdir(dirName):
+        fullpath = os.path.join(dirName, f)
+        if os.path.isdir(fullpath):
+            copyDir(fullpath)
+        else:
+            copyToS3(fullpath)
 
-
-
-
-#Create apigateway js
-#upload apigateway js
+copyDir('apiGateway-js-sdk')
 
 #Create image processing lambda with S3 trigger
 
