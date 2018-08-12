@@ -1,4 +1,5 @@
 import boto3
+import datetime
 import json
 import os
 import os.path
@@ -15,55 +16,7 @@ bucketArn = "arn:aws:s3:::" + bucketName
 bucketArnWildCard = bucketArn + '/*'
 
 s3 = boto3.client('s3')
-
-if (region == 'us-east-1'):
-    s3.create_bucket(Bucket=bucketName, ACL='public-read')
-else:
-    s3.create_bucket(
-        Bucket=bucketName,
-        ACL='public-read',
-        CreateBucketConfiguration = {
-            'LocationConstraint': region
-        })
-
-bucketWaiter = s3.get_waiter('bucket_exists')
-bucketWaiter.wait(Bucket=bucketName)
-
-s3.put_bucket_website(
-    Bucket=bucketName,
-    WebsiteConfiguration={
-        'IndexDocument': {'Suffix': 'index.html'}
-    })
-
 iam = boto3.client('iam')
-iamWaiter = iam.get_waiter('user_exists')
-
-lambdaTrustPolicy = {
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Service": "lambda.amazonaws.com"
-      },
-      "Action": "sts:AssumeRole"
-  }]
-}
-
-lambdaExecutionPolicy = {
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": [
-                "logs:CreateLogGroup",
-                "logs:CreateLogStream",
-                "logs:PutLogEvents"
-            ],
-            "Resource": "arn:aws:logs:*:*:*"
-        }
-    ]
-}
 
 
 def createRole(roleName, *policies):
@@ -93,6 +46,63 @@ def readFile(fileName, mode="rb"):
     content = f.read()
     f.close()
     return content
+
+def copyToS3(fileName):
+    body = readFile(fileName, 'rb')
+    s3.put_object(Bucket=bucketName, ACL='public-read', Body=body, Key=fileName)
+
+def replAndCopyToS3(fileName):
+    body = readFile(fileName, 'r').replace('${region}', region).replace('${bucketName}', bucketName)
+    s3.put_object(Bucket=bucketName, ACL='public-read', Body=body, Key=fileName)
+
+if (region == 'us-east-1'):
+    s3.create_bucket(Bucket=bucketName, ACL='public-read')
+else:
+    s3.create_bucket(
+        Bucket=bucketName,
+        ACL='public-read',
+        CreateBucketConfiguration = {
+            'LocationConstraint': region
+        })
+
+bucketWaiter = s3.get_waiter('bucket_exists')
+bucketWaiter.wait(Bucket=bucketName)
+
+thumbLambdaZipFile = 'thumbLambda.zip'
+copyToS3(thumbLambdaZipFile) 
+    
+s3.put_bucket_website(
+    Bucket=bucketName,
+    WebsiteConfiguration={
+        'IndexDocument': {'Suffix': 'index.html'}
+    })
+
+lambdaTrustPolicy = {
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+  }]
+}
+
+lambdaExecutionPolicy = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+            ],
+            "Resource": "arn:aws:logs:*:*:*"
+        }
+    ]
+}
 
 
 photoManagerPolicy = {
@@ -190,14 +200,6 @@ swagger = readFile('photoauth-Production-swagger-apigateway.json', 'r').replace(
 apig.put_rest_api(restApiId=apiId, body=swagger)
 apig.create_deployment(restApiId=apiId, stageName='Production')
 
-def copyToS3(fileName):
-    body = readFile(fileName, 'rb')
-    s3.put_object(Bucket=bucketName, ACL='public-read', Body=body, Key=fileName)
-
-def replAndCopyToS3(fileName):
-    body = readFile(fileName, 'r').replace('${region}', region).replace('${bucketName}', bucketName)
-    s3.put_object(Bucket=bucketName, ACL='public-read', Body=body, Key=fileName)
-    
 copyToS3('photoalbum.js')
 copyToS3('photos.js')
 replAndCopyToS3('index.html')
@@ -224,7 +226,37 @@ def copyDir(dirName):
             copyToS3(fullpath)
 
 copyDir('apiGateway-js-sdk')
+thumbLambdaName = rolePrefix + 'ThumbLambda'
 
-#Create image processing lambda with S3 trigger
+objectWaiter  = s3.get_waiter('object_exists')
+objectWaiter.wait(Bucket=bucketName, Key=thumbLambdaZipFile)
+thumbResponse = lambdaClient.create_function(
+    FunctionName = thumbLambdaName,
+    Runtime = 'python3.6',
+    Role = photoManagerArn,
+    Code = { 'S3Bucket': bucketName, 'S3Key' : thumbLambdaZipFile },
+    Handler = 'lambda_function.lambda_handler'
+)
+thumbArn = thumbResponse['FunctionArn']
 
+uniqueId = str(datetime.datetime.utcnow().timestamp()).replace('.', '')
 
+lambdaClient.add_permission(
+    StatementId = uniqueId,
+    FunctionName = thumbLambdaName,
+    Action = 'lambda:InvokeFunction',
+    Principal = 's3.amazonaws.com',
+    SourceArn = bucketArn
+)
+    
+    
+s3.put_bucket_notification_configuration(
+    Bucket=bucketName,
+    NotificationConfiguration = {
+        'LambdaFunctionConfigurations':[
+            { 'LambdaFunctionArn': thumbArn,
+              'Events': ['s3:ObjectCreated:Put', 's3:ObjectCreated:Post']
+            }
+        ]
+    }
+)

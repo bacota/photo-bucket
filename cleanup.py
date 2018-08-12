@@ -15,6 +15,7 @@ def deleteLambda(functionName):
         pass
 
 deleteLambda(rolePrefix + 'AuthLambda')
+deleteLambda(rolePrefix + 'ThumbLambda')
 
 #delete a role with all attached policies
 def deleteRole(roleName):
