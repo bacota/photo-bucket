@@ -1,7 +1,9 @@
 import boto3
 import json
 import os
+import os.path
 import time
+import zipfile
 
 bucketName = os.environ['BUCKET_NAME']
 region = os.environ['REGION']
@@ -141,7 +143,7 @@ bucketPolicy = {
     ]
 }
 
-time.sleep(5)
+time.sleep(6)
 s3.put_bucket_policy(Bucket=bucketName, Policy=json.dumps(bucketPolicy))
 s3.put_bucket_cors(
     Bucket=bucketName,
@@ -187,12 +189,43 @@ swagger = readFile('photoauth-Production-swagger-apigateway.json', 'r').replace(
     '${apiId}', apiId).replace('${region}', region).replace('${authLambdaArn}', lambdaArn).replace('${title}', apiName)
 apig.put_rest_api(restApiId=apiId, body=swagger)
 
-#Create Cors for API Gateway
+def copyToS3(fileName):
+    body = readFile(fileName, 'rb')
+    s3.put_object(Bucket=bucketName, ACL='public-read', Body=body, Key=fileName)
+
+def replAndCopyToS3(fileName):
+    body = readFile(fileName, 'r').replace('${region}', region).replace('${bucketName}', bucketName)
+    s3.put_object(Bucket=bucketName, ACL='public-read', Body=body, Key=fileName)
+    
+copyToS3('photoalbum.js')
+copyToS3('photos.js')
+replAndCopyToS3('index.html')
+replAndCopyToS3('index-template.html')
+replAndCopyToS3('private-index.html')
+
+zipFileName = 'sdk.zip'
+
+sdk = apig.get_sdk(restApiId=apiId, stageName='Production', sdkType='javascript')['body'].read()
+zipFile = open(zipFileName, 'w')
+f.write(sdk)
+f.close()
+
+zip = zipfile.ZipFile(zipFileName, 'r')
+zip.extractall(".")
+zip.close()
+
+apiDirName = 'apiGateway-js-sdk'
+jsfiles = os.listdir(apiDirName)
+for f in jsFiles:
+    jsFileName = os.path.join(apiDirName, f)
+    print(jsFileName)
+
+
+
+
+#Create apigateway js
+#upload apigateway js
 
 #Create image processing lambda with S3 trigger
 
-#Copy js files to bucket
-#generate index files and copy those to bucket
-#Create apigateway js
-#upload apigateway js
 
