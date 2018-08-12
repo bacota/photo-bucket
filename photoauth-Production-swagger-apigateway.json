@@ -2,7 +2,7 @@
   "swagger": "2.0",
   "info": {
     "version": "2018-08-03T20:51:45Z",
-    "title": "photoauth"
+    "title": "${title}"
   },
   "host": "${apiId}.execute-api.${region}.amazonaws.com",
   "basePath": "/Production",

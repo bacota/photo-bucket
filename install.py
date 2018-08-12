@@ -184,16 +184,15 @@ apiResponse = apig.create_rest_api(name=apiName)
 apiId = apiResponse['id']
 
 swagger = readFile('photoauth-Production-swagger-apigateway.json', 'r').replace(
-    '${apiId}', apiId).replace('${region}', region).replace('${authLambdaArn}', lambdaArn)
+    '${apiId}', apiId).replace('${region}', region).replace('${authLambdaArn}', lambdaArn).replace('${title}', apiName)
 apig.put_rest_api(restApiId=apiId, body=swagger)
 
+#Create Cors for API Gateway
 
-#Create Auth Lambda
 #Create image processing lambda with S3 trigger
+
 #Copy js files to bucket
 #generate index files and copy those to bucket
-#Create api gateway endpoint
-#Create Cors for API Gateway
 #Create apigateway js
 #upload apigateway js
 
