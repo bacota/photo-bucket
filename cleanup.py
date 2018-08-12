@@ -41,3 +41,13 @@ except:
     pass
 
 
+#Assumes fewer than 500 total api gateways in your account
+apiName = rolePrefix + 'AuthApi'
+apig = boto3.client('apigateway')
+apiItems = apig.get_rest_apis()['items']
+for item in apiItems:
+    if (item['name'] == apiName):
+        try:
+            apig.delete_rest_api(restApiId = item['id'])
+        except:
+            pass
