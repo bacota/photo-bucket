@@ -86,11 +86,12 @@ def createRole(roleName, *policies):
         return roleArn
 
 
-def readFile(fileName):
-    f = open(fileName, "rb")
+def readFile(fileName, mode="rb"):
+    f = open(fileName, mode)
     content = f.read()
     f.close()
     return content
+
 
 photoManagerPolicy = {
     "Version": "2012-10-17",
@@ -157,7 +158,7 @@ s3.put_bucket_cors(
 )
 
 lambdaClient = boto3.client('lambda')
-authLambdaCode = readFile("auth/auth.zip")
+authLambdaCode = readFile('auth/auth.zip', 'rb')
 
 authLambdaName=rolePrefix + 'AuthLambda'
 time.sleep(4)
@@ -182,8 +183,8 @@ apiName = rolePrefix + 'AuthApi'
 apiResponse = apig.create_rest_api(name=apiName)
 apiId = apiResponse['id']
 
-swagger = readFile('photoauth-Production-swagger-apigateway.json').replace(
-    '${apiId}', apiId).replace('${region}', region).replace('${authLambdaArn}', lanbdaArn)
+swagger = readFile('photoauth-Production-swagger-apigateway.json', 'r').replace(
+    '${apiId}', apiId).replace('${region}', region).replace('${authLambdaArn}', lambdaArn)
 apig.put_rest_api(restApiId=apiId, body=swagger)
 
 
