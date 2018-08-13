@@ -47,13 +47,23 @@ def readFile(fileName, mode="rb"):
     f.close()
     return content
 
+def contentType(fileName):
+    if fileName.endswith('.html'):
+        return 'text/html'
+    elif fileName.endswith('.js'):
+        return 'application/javascript'
+    else:
+        return 'binary/octet-stream'
+
 def copyToS3(fileName):
     body = readFile(fileName, 'rb')
-    s3.put_object(Bucket=bucketName, ACL='public-read', Body=body, Key=fileName)
+    s3.put_object(Bucket=bucketName, ACL='public-read', Body=body,
+                  Key=fileName, ContentType=contentType(fileName))
 
 def replAndCopyToS3(fileName):
     body = readFile(fileName, 'r').replace('${region}', region).replace('${bucketName}', bucketName)
-    s3.put_object(Bucket=bucketName, ACL='public-read', Body=body, Key=fileName)
+    s3.put_object(Bucket=bucketName, ACL='public-read', Body=body,
+                  Key=fileName, ContentType=contentType(fileName))
 
 if (region == 'us-east-1'):
     s3.create_bucket(Bucket=bucketName, ACL='public-read')
