@@ -52,6 +52,7 @@ function authenticate(regionParam, bucketName) {
             });
             listFolders(region, bucketName);
         }).catch( function(result) {
+            console.log(result.data)
             authenticate(region, bucketName);
         });
 }
