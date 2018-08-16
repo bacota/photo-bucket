@@ -287,33 +287,6 @@ function moveCurrentPhoto() {
 }
 
 
-function drop(ev) {
-    ev.preventDefault();
-    let sourceId = ev.dataTransfer.getData("sourceId");
-    let targetId = ev.target.id
-    ev.target.appendChild(document.getElementById(sourceId));
-    let newImages = []
-    let i=0,j=0
-    while (i<images.length) {
-        if (images[i] == sourceId) {
-            i++
-        } else if (images[i] == targetId) {
-            newImages[j++] = sourceId
-            newImages[j++] = targetId
-            i++
-        } else {
-            newImages[j++] = images[i++]
-        }
-    }
-    resetImages()
-    removeElementsByClass('thumb')
-    for (i=0; i<newImages.length; ++i) {
-        addThumb(newImages[i], i)
-    }
-    document.getElementById('saveOrdering').style.display = 'inline'
-}
-
-
 function saveOrdering() {
     let metadata = {images: images, captions: captions}
     s3.putObject({Body: JSON.stringify(metadata),

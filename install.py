@@ -48,6 +48,9 @@ lambdaExecutionPolicy = {
 }
 
 
+def uniqueId():
+    return str(datetime.datetime.utcnow().timestamp()).replace('.', '')
+
 #Create a role for lambdas
 def createRole(roleName, *policies):
     roleResponse = iam.create_role(
@@ -108,11 +111,6 @@ else:
 bucketWaiter = s3.get_waiter('bucket_exists')
 bucketWaiter.wait(Bucket=bucketName)
 
-#Upload a zip file for creating a lambda and do it now since it might
-#take a few seconds to become visible across all AZs.
-thumbLambdaZipFile = 'thumbLambda.zip'
-copyToS3(thumbLambdaZipFile) 
-    
 s3.put_bucket_website(
     Bucket=bucketName,
     WebsiteConfiguration={
@@ -170,10 +168,15 @@ bucketPolicy = {
     ]
 }
 
+#Upload a zip file for creating a lambda and do it now since it might
+#take a few seconds to become visible across all AZs.
+thumbLambdaZipFile = 'thumbLambda.zip'
+copyToS3(thumbLambdaZipFile) 
+
 #The put_bucket_policy often fails without some sleep.  Occasionally, it
 #fails even after 6 second sleep, but 6 seconds works for me most of
 #the time
-time.sleep(6)
+#time.sleep(6)
 
 s3.put_bucket_policy(Bucket=bucketName, Policy=json.dumps(bucketPolicy))
 s3.put_bucket_cors(
@@ -218,14 +221,104 @@ response = lambdaClient.create_function(
 lambdaArn = response['FunctionArn']
 
 #Create the api gateway endpoint (from a swagger definition) for the auth lambda
-apig = boto3.client('apigateway')
+#YEESH!
+apiClient = boto3.client('apigateway')
 apiName = rolePrefix + 'AuthApi'
-apiResponse = apig.create_rest_api(name=apiName)
-apiId = apiResponse['id']
-swagger = readFile('photoauth-Production-swagger-apigateway.json', 'r').replace(
-    '${apiId}', apiId).replace('${region}', region).replace('${authLambdaArn}', lambdaArn).replace('${title}', apiName)
-apig.put_rest_api(restApiId=apiId, body=swagger)
-apig.create_deployment(restApiId=apiId, stageName='Production')
+
+restApiId = apiClient.create_rest_api(name=apiName)['id']
+
+#Use root resourceId
+resourceId = apiClient.get_resources(restApiId=restApiId)['items'][0]['id']
+
+## create POST method
+apiClient.put_method(
+    restApiId=restApiId,
+    resourceId=resourceId,
+    httpMethod="POST",
+    authorizationType="NONE",
+    apiKeyRequired=False
+)
+
+lambdaVersion = lambdaClient.meta.service_model.api_version
+lambdaUri = f'arn:aws:apigateway:{region}:lambda:path/{lambdaVersion}/functions/{lambdaArn}/invocations'
+
+## create integration
+apiClient.put_integration(
+    restApiId=restApiId,
+    resourceId=resourceId,
+    httpMethod="POST",
+    type="AWS",
+    integrationHttpMethod="POST",
+    uri=lambdaUri
+)
+
+apiClient.put_integration_response(
+    restApiId=restApiId,
+    resourceId=resourceId,
+    httpMethod="POST",
+    statusCode="200",
+    selectionPattern=".*"
+)
+
+## create POST method response
+apiClient.put_method_response(
+    restApiId=restApiId,
+    resourceId=resourceId,
+    httpMethod="POST",
+    statusCode="200"
+)
+
+## create OPTIONS method
+apiClient.put_method(
+    restApiId=restApiId,
+    resourceId=resourceId,
+    httpMethod="OPTIONS",
+    authorizationType="NONE",
+    apiKeyRequired=False
+)
+
+## create integration
+apiClient.put_integration(
+    restApiId=restApiId,
+    resourceId=resourceId,
+    httpMethod="OPTIONS",
+    type="MOCK",
+    integrationHttpMethod="OPTIONS"
+)
+
+apiClient.put_integration_response(
+    restApiId=restApiId,
+    resourceId=resourceId,
+    httpMethod="OPTIONS",
+    statusCode="200",
+    selectionPattern=".*"
+)
+
+## create OPTIONS method response
+apiClient.put_method_response(
+    restApiId=restApiId,
+    resourceId=resourceId,
+    httpMethod="OPTIONS",
+    statusCode="200"
+)
+
+
+accountId = lambdaArn.split(':')[4]
+sourceArn = f'arn:aws:execute-api:{region}:{accountId}:{restApiId}/*/POST/{authLambdaName}'
+
+lambdaClient.add_permission(
+    FunctionName=authLambdaName,
+    StatementId=uniqueId(),
+    Action="lambda:InvokeFunction",
+    Principal="apigateway.amazonaws.com",
+    SourceArn=sourceArn
+)
+
+apiClient.create_deployment(
+    restApiId=restApiId,
+    stageName='Production',
+)
+
 
 #Upload required javasccript and html files.  
 copyToS3('photoalbum.js')
@@ -238,7 +331,7 @@ replAndCopyToS3('private-index.html')
 #This results in a downloaded zip file.  We unzip it and upload each
 #individual js file to the s3 bucket.
 zipFileName = 'sdk.zip'
-sdk = apig.get_sdk(restApiId=apiId, stageName='Production', sdkType='javascript')['body'].read()
+sdk = apiClient.get_sdk(restApiId=restApiId, stageName='Production', sdkType='javascript')['body'].read()
 zipFile = open(zipFileName, 'wb')
 zipFile.write(sdk)
 zipFile.close()
@@ -273,9 +366,8 @@ thumbArn = thumbResponse['FunctionArn']
 #Create a rule to trigger the image processing lambda when an image is added to the bucket.
 
 #The add_permission insists on some kind of unique id that we never use later
-uniqueId = str(datetime.datetime.utcnow().timestamp()).replace('.', '')
 lambdaClient.add_permission(
-    StatementId = uniqueId,
+    StatementId = uniqueId(),
     FunctionName = thumbLambdaName,
     Action = 'lambda:InvokeFunction',
     Principal = 's3.amazonaws.com',
@@ -293,3 +385,4 @@ s3.put_bucket_notification_configuration(
         ]
     }
 )
+

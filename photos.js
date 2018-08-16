@@ -24,7 +24,7 @@ function photos(region) {
     let pieces = window.document.documentURI.split("/")
     bucketName = pieces[2]
     prefix = pieces[3]
-    showThumbs(region, bucket, prefix)
+    showThumbs(region, bucketName, prefix)
 }
 
 function arrayContains(array, element) {
@@ -215,4 +215,32 @@ function drag(ev) {
 
 function resetImages() {
     images = []
+}
+
+
+function drop(ev) {
+    ev.preventDefault();
+    let sourceId = ev.dataTransfer.getData("sourceId");
+    let targetId = ev.target.id
+    ev.target.appendChild(document.getElementById(sourceId));
+    let newImages = []
+    let i=0,j=0
+    while (i<images.length) {
+        if (images[i] == sourceId) {
+            i++
+        } else if (images[i] == targetId) {
+            newImages[j++] = sourceId
+            newImages[j++] = targetId
+            i++
+        } else {
+            newImages[j++] = images[i++]
+        }
+    }
+    resetImages()
+    removeElementsByClass('thumb')
+    for (i=0; i<newImages.length; ++i) {
+        addThumb(newImages[i], i)
+    }
+    let saveButton = document.getElementById('saveOrdering')
+    if (saveButton) saveButton.style.display = 'inline'
 }
