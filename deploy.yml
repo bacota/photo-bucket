@@ -1,0 +1,99 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: 'Bruces Photo Album'
+
+Parameters:
+  PhotoBucketName:
+    Description: "Name of bucket for holding photos"
+    Type: String
+  Username:
+    Description: "Username used for authenticating to manage the photo album"
+    Type: String
+  Password:
+    Description: "Password used for authenticating to manage the photo album"
+    Type: String
+
+Globals:
+  Api:
+    EndpointConfiguration: REGIONAL
+    Name: PhotoBucketApi
+     
+Resources:
+  PhotoBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref PhotoBucketName
+      AccessControl: PublicRead
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+    BucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Bucket: !Ref PhotoBucket
+      Properties:
+        PolicyDocument:
+          Id: PhotoBucketPolicy
+          Version: 2012-10-17
+          Statement:
+            - Sid: PublicReadForGetBucketObjects
+              Effect: Allow
+              Principal: '*'
+              Action: 's3:GetObject'
+              Resource: !Join 
+                - ''
+                - 'arn:aws:s3:::'
+                - !Ref S3Bucket
+                - /*
+
+  PhotoManagerRole: 
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement :
+          Effect: "Allow"
+          Principal:
+            Service:
+              - "lambda.amazonaws.com"
+          Action: 'sts:AssumeRole'
+      Policies:
+        - S3CrudPolicy:
+            bucketName: !Ref PhotoBucketName
+            
+
+  AuthorizationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda_function::lambda_handler
+      Runtime: python3.6
+      Timeout: 5
+      MemorySize: 128
+      CodeUri: auth/auth.zip
+      Role: !Ref PhotoManagerRole
+      Environment:
+        Variables:
+          USERNAME: !Ref Username
+          PASSWORD: !Ref Password
+          ROLE_ARN: !Ref PhotoManagerRole
+      Events:
+        AuthApi:
+          Type: Api
+          Properties:
+            Path: /auth
+            Method: POST
+      
+  ThumbnailGenerationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda_function::lambda_handler
+      Runtime: python3.6
+      Timeout: 30
+      MemorySize: 128
+      CodeUri: thumbLambda.zip
+      Role: !Ref PhotoManagerRole
+      Events:
+        PhotoPut:
+          Type: S3
+          Properties: 
+            Bucket: !Ref PhotoBucket
+            Events: s3:ObjectCreated:*
+
