@@ -55,10 +55,16 @@ Resources:
             Service:
               - "lambda.amazonaws.com"
           Action: 'sts:AssumeRole'
+      Path: "/"
       Policies:
-        - S3CrudPolicy:
-            bucketName: !Ref PhotoBucketName
-            
+        -
+          PolicyName: "PhotoBucketManagerPolicy"
+          PolicyDocument:
+            Statement: 
+              - 
+                Effect: "Allow"
+                Action: "*"
+                Resource: !Ref PhotoBucket
 
   AuthorizationFunction:
     Type: AWS::Serverless::Function
