@@ -119,9 +119,10 @@ function toggleDeleteButton() {
 
 function addThumb(thumbName, index) {
     let thumbDiv = document.getElementById("thumbs")
-    if (!arrayContains(images, thumbName)) {
-        images.push(thumbName)
+    if (arrayContains(images, thumbName)) {
+        return
     }
+    images.push(thumbName)
     let img = document.createElement("img")
     let anchor = document.createElement("a")
     anchor.className = "thumb"
